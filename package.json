@@ -1,0 +1,14 @@
+{
+  "name": "swtl-clone",
+  "description": "Implementation of toy ui library [swtl](https://github.com/thepassle/swtl) aimed at exploring & understanding the library.",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "reload -b"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "reload": "^3.2.1"
+  }
+}
