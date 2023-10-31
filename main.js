@@ -1,0 +1,1 @@
+export const html = `<html><body><h1>Check 1234</h1></body></html>`;

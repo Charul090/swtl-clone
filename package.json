@@ -4,11 +4,13 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "reload -b"
+    "start": "esbuild index.js --bundle --sourcemap --outdir=src --watch --servedir=src",
+    "build": "mkdir -p dist && cp src/index.html dist && esbuild index.js --bundle --sourcemap --outdir=dist",
+    "watch": "npm start"
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "reload": "^3.2.1"
+    "esbuild": "0.19.5"
   }
 }
