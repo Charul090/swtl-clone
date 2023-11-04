@@ -1,5 +1,4 @@
-import { render } from './render';
-import { html } from './main';
+import { router } from './main';
 
 self.addEventListener('install', (event) => {
     console.log('service worker installed', event);
@@ -12,6 +11,6 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
     if (event.request.mode === 'navigate') {
-        event.respondWith(render(html));
+        event.respondWith(router.handleRequest(event.request));
     }
 });
