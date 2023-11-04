@@ -4,7 +4,7 @@ export const router = new Router(
     [
         {
             path: '/',
-            render: () => (`<html><body><h1>Check 1234</h1></body></html>`)
+            render: () => (`<html><body><h1>Check 1234s</h1></body></html>`)
         },
         {
             path: '/about',
