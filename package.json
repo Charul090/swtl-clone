@@ -3,6 +3,7 @@
   "description": "Implementation of toy ui library [swtl](https://github.com/thepassle/swtl) aimed at exploring & understanding the library.",
   "version": "1.0.0",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "start": "esbuild index.js --bundle --sourcemap --outdir=src --watch --servedir=src",
     "build": "mkdir -p dist && cp src/index.html dist && esbuild index.js --bundle --sourcemap --outdir=dist",
