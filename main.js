@@ -16,7 +16,10 @@ export const router = new Router(
             },
             {
                 path: '/b',
-                plugin: () => (`<html><body><h1>Render Local</h1></body></html>`)
+                plugin: [{ name: 'b plugin', beforeResponse: async () =>  {
+                    const textEncoder = new TextEncoder();
+                    return new Response(textEncoder.encode(`<html><body><h1>Render Local</h1></body></html>`));
+                }}]
             }
         ],
         fallback: `<html><body><h1>404</h1></body></html>`,

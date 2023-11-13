@@ -27,7 +27,7 @@ export class Router {
      * @param {*} routes Array<{ path: string, render: (params, query, request) => string, plugin }>
      * @param {*} fallback string
      * @param {*} baseHref string
-     * @param {*} baseHref plugins
+     * @param {*} plugins Array<{ name: string, beforeResponse: () => any }>
      */
     constructor({ routes, fallback, baseHref = '', plugin }) {
         this.routes = routes;
@@ -36,7 +36,7 @@ export class Router {
         this.baseHref = baseHref
     }
 
-    handleRequest (req) {
+    async handleRequest (req) {
         const url = req.url;
         let pathInfo;
         const matchedRoute = this.routes.find(route => {
@@ -58,11 +58,13 @@ export class Router {
         const params = pathInfo.pathname.groups;
         
         if (matchedRoute.plugin ?? this.plugin) {
-            const plugin = matchedRoute.plugin ?? this.plugin;
-            const pluginRes = plugin(params, search, req);
-            if (String(pluginRes) === '[object Response]') {
-                return pluginRes;
-            }
+            const plugins = matchedRoute.plugin ?? this.plugin;
+            for(const plugin of plugins) {
+                const pluginRes = await plugin.beforeResponse(params, search, req);
+                if (String(pluginRes) === '[object Response]') {
+                    return pluginRes;
+                }
+            };
             
             return getHtmlResponseForTemplate(pluginRes);
         }
