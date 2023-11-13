@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import { html } from '../html.js';
 import { renderToString } from '../render.js';
 import { COMPONENT_SYMBOL } from "../symbol.js";
+import { HtmlPage } from '../HtmlPage/index.js';
 
 function Foo() {}
 function Bar({ children }) {
@@ -328,22 +329,22 @@ describe('renderToString', () => {
     assert.equal(result, '<ul><li>1</li><li>2</li></ul>');
   });
 
-  // it('stream', async () => {
-  //   const stream = new ReadableStream({
-  //     start(controller) {
-  //       ['a', 'b', 'c'].forEach(s => controller.enqueue(s));
-  //       controller.close();
-  //     }
-  //   });
-  //   const result = await renderToString(html`<ul>${stream}</ul>`);
-  //   assert.equal(result, '<ul>abc</ul>');
-  // });
+  it('stream', async () => {
+    const stream = new ReadableStream({
+      start(controller) {
+        ['a', 'b', 'c'].forEach(s => controller.enqueue(s));
+        controller.close();
+      }
+    });
+    const result = await renderToString(html`<ul>${stream}</ul>`);
+    assert.equal(result, '<ul>abc</ul>');
+  });
 
-  // it('response', async () => {
-  //   const response = new Response('<h1>hello</h1>');
-  //   const result = await renderToString(html`<main>${response}</main>`);
-  //   assert.equal(result, '<main><h1>hello</h1></main>');
-  // });
+  it('response', async () => {
+    const response = new Response('<h1>hello</h1>');
+    const result = await renderToString(html`<main>${response}</main>`);
+    assert.equal(result, '<main><h1>hello</h1></main>');
+  });
 
   // it('Component returning response', async () => {
   //   function Foo() {
@@ -378,18 +379,18 @@ describe('renderToString', () => {
   // </script>`);
   // });
 
-  // it('kitchensink', async () => {
-  //   function Html({children}) {
-  //     return html`<html><body>${children}</body></html>`;
-  //   }
+  it('kitchensink', async () => {
+    function Html({children}) {
+      return html`<html><body>${children}</body></html>`;
+    }
 
-  //   function Foo({bar, baz}) {
-  //     return html`<h2>foo ${bar} ${baz}</h2>`
-  //   }
+    function Foo({bar, baz}) {
+      return html`<h2>foo ${bar} ${baz}</h2>`
+    }
 
-  //   const result = await renderToString(html`<${Html}><h1>welcome ${1}</h1><${Foo} bar=${1} baz="2"/><footer>copyright</footer><//>`)
-  //   assert.equal(result, '<html><body><h1>welcome 1</h1><h2>foo 1 2</h2><footer>copyright</footer></body></html>');
-  // });
+    const result = await renderToString(html`<${Html}><h1>welcome ${1}</h1><${Foo} bar=${1} baz="2"/><footer>copyright</footer><//>`)
+    assert.equal(result, '<html><body><h1>welcome 1</h1><h2>foo 1 2</h2><footer>copyright</footer></body></html>');
+  });
 
   // it('test code of components nested', async () => {
   //   const htmlPage = html`<${HtmlPage} title="Home">
