@@ -1,5 +1,26 @@
 import { render } from './render';
 
+function getHtmlResponseForTemplate(template) {
+    const responseIterator = render(template);
+    const textEncoder = new TextEncoder();
+    const readAbleStream = new ReadableStream({
+        pull: (controller) => {
+            const { value, done } = responseIterator.next();
+            if (done) {
+                controller.close();
+            } else {
+                const byteHtml = textEncoder.encode(value);
+                controller.enqueue(byteHtml);
+            }
+        }
+    });
+
+    const headers = { 
+        'Content-Type': 'text/html'
+    };
+    const response = new Response(readAbleStream, { headers });
+    return response;
+};
 export class Router {
     /**
      * 
@@ -29,7 +50,7 @@ export class Router {
         });
 
         if (!matchedRoute) {
-            return render(this.fallback || '');
+            return getHtmlResponseForTemplate(this.fallback || '');
         }
 
         const search = {};
@@ -43,7 +64,7 @@ export class Router {
                 return pluginRes;
             }
             
-            return render(pluginRes);
+            return getHtmlResponseForTemplate(pluginRes);
         }
         
         
@@ -52,6 +73,6 @@ export class Router {
         }
 
         const htmlTemplate = matchedRoute.render(params, search, req);
-        return render(htmlTemplate);
+        return getHtmlResponseForTemplate(htmlTemplate);
     }
 }

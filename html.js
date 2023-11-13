@@ -83,12 +83,14 @@ function getProps (i, j, statics, dynamics) {
 export function* html (statics, ...dynamics) {
     if (dynamics.length === 0) {
         yield* statics
+        return;
     }
     const isComponentPresent = dynamics.some(dynamicValue => typeof dynamicValue === 'function');
     if (!isComponentPresent) {
         yield* statics.reduce((acc, curr, index) => {
             return [...acc, curr, ...(dynamics[index] != null ? [dynamics[index]] : [])]
         }, []);
+        return;
     }
 
     let currentTraversalMode = TRAVERSAL_MODE.DATA;
@@ -142,7 +144,7 @@ export function* html (statics, ...dynamics) {
                 // component encountered
                 if (j === statics[i].length - 1 && statics[i][j] === '<') {
                     if (htmlString) {
-                        yield htmlString;
+                        componentStack[componentStack.length - 1].children.push(htmlString);
                         htmlString = '';
                     }
                     const component = { fn: dynamics[i], children: [], kind: COMPONENT_SYMBOL };;

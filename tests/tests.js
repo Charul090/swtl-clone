@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
 import { html } from '../html.js';
-// import { renderToString } from '../render.js';
+import { renderToString } from '../render.js';
 import { COMPONENT_SYMBOL } from "../symbol.js";
 
 function Foo() {}
@@ -270,64 +270,63 @@ describe('children', () => {
   });
 });
 
-// describe('renderToString', () => {
-//   function Foo() {
-//     return html`<h1>foo</h1>`
-//   }
+describe('renderToString', () => {
+  function Foo() {
+    return html`<h1>foo</h1>`
+  }
 
-//   function Bar({children}) {
-//     return html`<h1>${children}</h1>`
-//   }
+  function Bar({children}) {
+    return html`<h1>${children}</h1>`
+  }
 
-//   function Baz({children}) {
-//     return html`<h2>${children}</h2>`
-//   }
+  function Baz({children}) {
+    return html`<h2>${children}</h2>`
+  }
 
-//   it('basic', async () => {
-//     const result = await renderToString(html`<h1>hello</h1>`);
-//     assert.equal(result, '<h1>hello</h1>');
-//   });
+  it('basic', async () => {
+    const result = await renderToString(html`<h1>hello</h1>`);
+    assert.equal(result, '<h1>hello</h1>');
+  });
 
-  // it('expressions', async () => {
-  //   const result = await renderToString(html`<h1>hello ${1}</h1>`);
-  //   assert.equal(result, '<h1>hello 1</h1>');
-  // });
+  it('expressions', async () => {
+    const result = await renderToString(html`<h1>hello ${1}</h1>`);
+    assert.equal(result, '<h1>hello 1</h1>');
+  });
 
-  // it('components', async () => {
-  //   const result = await renderToString(html`<${Foo}/>`);
-  //   assert.equal(result, '<h1>foo</h1>');
-  // });
+  it('components', async () => {
+    const result = await renderToString(html`<${Foo}/>`);
+    assert.equal(result, '<h1>foo</h1>');
+  });
 
-  // it('components children', async () => {
-  //   const result = await renderToString(html`<${Bar}>bar<//>`);
-  //   assert.equal(result, '<h1>bar</h1>');
-  // });
+  it('components children', async () => {
+    const result = await renderToString(html`<${Bar}>bar<//>`);
+    assert.equal(result, '<h1>bar</h1>');
+  });
 
-  // it('falsey values', async () => {
-  //   const result = await renderToString(html`<h1>${0}${false}</h1>`);
-  //   assert.equal(result, '<h1>0false</h1>');
-  // });
+  it('falsey values', async () => {
+    const result = await renderToString(html`<h1>${0}${false}</h1>`);
+    assert.equal(result, '<h1>0false</h1>');
+  });
 
-  // it('objects', async () => {
-  //   const result = await renderToString(html`<h1>${{a: 2}}</h1>`);
-  //   assert.equal(result, '<h1>{"a":2}</h1>');
-  // });
+  it('objects', async () => {
+    const result = await renderToString(html`<h1>${{a: 2}}</h1>`);
+    assert.equal(result, '<h1>{"a":2}</h1>');
+  });
   
-  // it('components nested children', async () => {
-  //   const result = await renderToString(html`<h1><Hello</h1><${Bar}><h1>Herllo</h1><${Baz}>baz<//><//>`);
-  //   console.log(result);
-  //   assert.equal(result, '<h1><h2>baz</h2></h1>');
-  // });
+  it('components nested children', async () => {
+    const result = await renderToString(html`<h1><Hello</h1><${Bar}><h1>Hello</h1><${Baz}>baz<//><//>`);
+    assert.equal(result, '<h1><Hello</h1><h1><h1>Hello</h1><h2>baz</h2></h1>');
+  });
 
-  // it('generator', async () => {
-  //   function* generator() {
-  //     yield* html`<li>1</li>`;
-  //     yield* html`<li>2</li>`;
-  //   }
+  it('generator', async () => {
+    function* generator() {
+      yield* html`<li>1</li>`;
+      yield* html`<li>2</li>`;
+    }
 
-  //   const result = await renderToString(html`<ul>${generator()}</ul>`);
-  //   assert.equal(result, '<ul><li>1</li><li>2</li></ul>');
-  // });
+    const result = await renderToString(html`<ul>${generator()}</ul>`);
+    assert.equal(result, '<ul><li>1</li><li>2</li></ul>');
+  });
 
   // it('stream', async () => {
   //   const stream = new ReadableStream({
@@ -405,4 +404,4 @@ describe('children', () => {
   // <//>`
   // console.log(renderToString(htmlPage));
   // })
-// });
+});

@@ -72,7 +72,7 @@
         return isMatch;
       });
       if (!matchedRoute) {
-        return getHtmlResponseForTemplate(this.fallback || "");
+        return render(this.fallback || "");
       }
       const search = {};
       const searchParams = new URLSearchParams(pathInfo.search.groups[0]);
@@ -83,7 +83,7 @@
         if (String(pluginRes) === "[object Response]") {
           return pluginRes;
         }
-        return getHtmlResponseForTemplate(pluginRes);
+        return render(pluginRes);
       }
       for (const [key, value] of searchParams.entries()) {
         search[key] = value;
@@ -297,8 +297,8 @@
           plugin: () => render(`<html><body><h1>Render Stream</h1></body></html>`)
         }
       ],
-      fallback: `<html><body><h1>404</h1></body></html>`
-      // plugin: () =>('<html><body><h1>Render global plugin</h1></body></html>')
+      fallback: `<html><body><h1>404</h1></body></html>`,
+      plugin: () => "<html><body><h1>Render global plugin</h1></body></html>"
     }
   );
 
