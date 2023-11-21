@@ -12,6 +12,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "esbuild": "0.19.5"
+    "esbuild": "0.19.5",
+    "eslint": "^8.54.0"
   }
 }
