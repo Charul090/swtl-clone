@@ -7,92 +7,6 @@
   var COMPONENT_SYMBOL = Symbol("component");
   var AWAIT_SYMBOL = Symbol("await");
 
-  // render.js
-  function* serializeChunk(chunk) {
-    if (typeof chunk === "string") {
-      yield chunk;
-    } else if (Array.isArray(chunk)) {
-      yield* chunk;
-    } else if (chunk?.kind === COMPONENT_SYMBOL) {
-      yield* serializeChunk(chunk.fn({ children: chunk.children, ...chunk.props }));
-    } else if (chunk[Symbol.iterator] || chunk[Symbol.asyncIterator]) {
-      yield* render(chunk);
-    }
-  }
-  function* render(html3) {
-    for (const chunk of html3) {
-      yield serializeChunk(chunk);
-    }
-  }
-
-  // router.js
-  function getHtmlResponseForTemplate(template) {
-    const responseIterator = render(template);
-    const textEncoder = new TextEncoder();
-    const readAbleStream = new ReadableStream({
-      pull: (controller) => {
-        const { value, done } = responseIterator.next();
-        if (done) {
-          controller.close();
-        } else {
-          const byteHtml = textEncoder.encode(value);
-          controller.enqueue(byteHtml);
-        }
-      }
-    });
-    const headers = {
-      "Content-Type": "text/html"
-    };
-    const response = new Response(readAbleStream, { headers });
-    return response;
-  }
-  var Router = class {
-    /**
-     * 
-     * @param {*} routes Array<{ path: string, render: (params, query, request) => string, plugin }>
-     * @param {*} fallback string
-     * @param {*} baseHref string
-     * @param {*} baseHref plugins
-     */
-    constructor({ routes, fallback, baseHref = "", plugin }) {
-      this.routes = routes;
-      this.fallback = fallback;
-      this.plugin = plugin;
-      this.baseHref = baseHref;
-    }
-    handleRequest(req) {
-      const url = req.url;
-      let pathInfo;
-      const matchedRoute = this.routes.find((route) => {
-        const urlPattern = new URLPattern({ pathname: this.baseHref ? this.baseHref + "/" : this.baseHref + route.path });
-        const isMatch = urlPattern.test(url);
-        if (isMatch) {
-          pathInfo = urlPattern.exec(url);
-        }
-        return isMatch;
-      });
-      if (!matchedRoute) {
-        return getHtmlResponseForTemplate(this.fallback || "");
-      }
-      const search = {};
-      const searchParams = new URLSearchParams(pathInfo.search.groups[0]);
-      const params = pathInfo.pathname.groups;
-      if (matchedRoute.plugin ?? this.plugin) {
-        const plugin = matchedRoute.plugin ?? this.plugin;
-        const pluginRes = plugin(params, search, req);
-        if (String(pluginRes) === "[object Response]") {
-          return pluginRes;
-        }
-        return getHtmlResponseForTemplate(pluginRes);
-      }
-      for (const [key, value] of searchParams.entries()) {
-        search[key] = value;
-      }
-      const htmlTemplate = matchedRoute.render(params, search, req);
-      return getHtmlResponseForTemplate(htmlTemplate);
-    }
-  };
-
   // html.js
   var TRAVERSAL_MODE = {
     DATA: "DATA",
@@ -166,15 +80,17 @@
     const isComponentClosed = statics[i][j - 1] === "/";
     return { props, isComponentClosed, updatedIndexes: [i, j] };
   }
-  function* html2(statics, ...dynamics) {
+  function* html(statics, ...dynamics) {
     if (dynamics.length === 0) {
       yield* statics;
+      return;
     }
     const isComponentPresent = dynamics.some((dynamicValue) => typeof dynamicValue === "function");
     if (!isComponentPresent) {
       yield* statics.reduce((acc, curr, index) => {
         return [...acc, curr, ...dynamics[index] != null ? [dynamics[index]] : []];
       }, []);
+      return;
     }
     let currentTraversalMode = TRAVERSAL_MODE.DATA;
     let currentLevel = LEVEL.PARENT;
@@ -227,7 +143,7 @@
         } else if (currentTraversalMode === TRAVERSAL_MODE.COMPONENT) {
           if (j === statics[i].length - 1 && statics[i][j] === "<") {
             if (htmlString) {
-              yield htmlString;
+              componentStack[componentStack.length - 1].children.push(htmlString);
               htmlString = "";
             }
             const component = { fn: dynamics[i], children: [], kind: COMPONENT_SYMBOL };
@@ -270,31 +186,197 @@
     }
   }
 
-  // HtmlPage/index.js
-  var _a;
-  function HtmlPage({ children, title }) {
-    return html2(_a || (_a = __template(['\n    <html lang="en">\n      <head>\n        <meta charset="utf-8" />\n        <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n        <meta name="Description" content="">\n        <title>', '</title>\n      </head>\n      <body>\n        <ul>\n          <li><a href="/">home</a></li>\n          <li><a href="/a">a</a></li>\n          <li><a href="/b">b</a></li>\n        </ul>\n        ', "\n        <script>\n          let refreshing;\n          async function handleUpdate() {\n            // check to see if there is a current active service worker\n            const oldSw = (await navigator.serviceWorker.getRegistration())?.active?.state;\n\n            navigator.serviceWorker.addEventListener('controllerchange', async () => {\n              if (refreshing) return;\n\n              // when the controllerchange event has fired, we get the new service worker\n              const newSw = (await navigator.serviceWorker.getRegistration())?.active?.state;\n\n              // if there was already an old activated service worker, and a new activating service worker, do the reload\n              if (oldSw === 'activated' && newSw === 'activating') {\n                refreshing = true;\n                window.location.reload();\n              }\n            });\n          }\n\n          handleUpdate();\n        <\/script>\n      </body>\n    </html>\n  "])), title ?? "", children);
+  // render.js
+  async function getValueFromReadableStream(readableStream) {
+    const textDecoder = new TextDecoder();
+    let response = "";
+    for await (const chunk of readableStream) {
+      response += textDecoder.decode(chunk);
+    }
+    return response;
   }
+  async function* serializeChunk(chunk, promiseArray) {
+    if (typeof chunk === "string" || typeof chunk === "boolean" || typeof chunk === "number") {
+      yield chunk;
+    } else if (Array.isArray(chunk)) {
+      yield* processTemplate(chunk, promiseArray);
+    } else if (chunk?.kind === COMPONENT_SYMBOL && chunk?.fn.kind === AWAIT_SYMBOL) {
+      const { promise } = chunk.props;
+      const { template } = chunk.fn({ children: chunk.children });
+      const id = promiseArray.length;
+      promiseArray.push(
+        promise().then((data) => {
+          return { id, template: template({ success: true, error: false, pending: false }, data, null) };
+        }).catch((error) => {
+          return { id, template: template({ success: false, error: true, pending: false }, null, error) };
+        })
+      );
+      yield* processTemplate(html`<awaiting-promise style="display:contents" data-id="${String(id)}">${template({ success: false, error: false, pending: true }, null, null)}</awaiting-promise>`, promiseArray);
+    } else if (chunk?.kind === COMPONENT_SYMBOL) {
+      yield* serializeChunk(chunk.fn({ children: chunk.children, ...chunk.props }), promiseArray);
+    } else if (chunk[Symbol.iterator] || chunk[Symbol.asyncIterator]) {
+      yield* processTemplate(chunk, promiseArray);
+    } else if (String(chunk) === "[object Response]") {
+      yield await getValueFromReadableStream(chunk.body);
+    } else {
+      const stringifiedChunk = chunk.toString();
+      yield stringifiedChunk === "[object Object]" ? JSON.stringify(chunk) : stringifiedChunk;
+    }
+  }
+  async function* processTemplate(html2, promiseArray) {
+    for await (const chunk of html2) {
+      yield* serializeChunk(chunk, promiseArray);
+    }
+  }
+  var _a;
+  async function* render(parsedData) {
+    const promiseArray = [];
+    yield* processTemplate(parsedData, promiseArray);
+    while (promiseArray.length > 0) {
+      const { id, template } = await Promise.race(promiseArray);
+      promiseArray.splice(id, 1);
+      yield* render(html(_a || (_a = __template(['\n        <template data-id="', '">', `</template>
+        <script>
+        {
+            const currElem = document.querySelector('awaiting-promise[data-id="`, `"]');
+            const newElem = document.querySelector('template[data-id="`, `"]').content.cloneNode(true);
+            currElem.replaceWith(newElem);
+        }
+        <\/script>
+        `])), String(id), template, String(id), String(id)));
+    }
+  }
+
+  // router.js
+  async function getHtmlResponseForTemplate(template) {
+    const responseIterator = render(template);
+    const textEncoder = new TextEncoder();
+    const readAbleStream = new ReadableStream({
+      pull: async (controller) => {
+        const { value, done } = await responseIterator.next();
+        if (done) {
+          controller.close();
+        } else {
+          const byteHtml = textEncoder.encode(value);
+          controller.enqueue(byteHtml);
+        }
+      }
+    });
+    const headers = {
+      "Content-Type": "text/html"
+    };
+    const response = new Response(readAbleStream, { headers });
+    return response;
+  }
+  var Router = class {
+    /**
+     * 
+     * @param {*} routes Array<{ path: string, render: (params, query, request) => string, plugin }>
+     * @param {*} fallback string
+     * @param {*} baseHref string
+     * @param {*} plugins Array<{ name: string, beforeResponse: () => any }>
+     */
+    constructor({ routes, fallback, baseHref = "", plugin }) {
+      this.routes = routes;
+      this.fallback = fallback;
+      this.plugin = plugin;
+      this.baseHref = baseHref;
+    }
+    async handleRequest(req) {
+      const url = req.url;
+      let pathInfo;
+      const matchedRoute = this.routes.find((route) => {
+        const urlPattern = new URLPattern({ pathname: this.baseHref ? this.baseHref + "/" : this.baseHref + route.path });
+        const isMatch = urlPattern.test(url);
+        if (isMatch) {
+          pathInfo = urlPattern.exec(url);
+        }
+        return isMatch;
+      });
+      if (!matchedRoute) {
+        return await getHtmlResponseForTemplate(this.fallback || "");
+      }
+      const search = {};
+      const searchParams = new URLSearchParams(pathInfo.search.groups[0]);
+      const params = pathInfo.pathname.groups;
+      if (matchedRoute.plugin ?? this.plugin) {
+        const plugins = matchedRoute.plugin ?? this.plugin;
+        for (const plugin of plugins) {
+          const pluginRes2 = await plugin.beforeResponse(params, search, req);
+          if (String(pluginRes2) === "[object Response]") {
+            return pluginRes2;
+          }
+        }
+        ;
+        return await getHtmlResponseForTemplate(pluginRes);
+      }
+      for (const [key, value] of searchParams.entries()) {
+        search[key] = value;
+      }
+      const htmlTemplate = matchedRoute.render(params, search, req);
+      return await getHtmlResponseForTemplate(htmlTemplate);
+    }
+  };
+
+  // HtmlPage/index.js
+  var _a2;
+  function HtmlPage({ children, title }) {
+    return html(_a2 || (_a2 = __template(['\n    <html lang="en">\n      <head>\n        <meta charset="utf-8" />\n        <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n        <meta name="Description" content="">\n        <title>', '</title>\n      </head>\n      <body>\n        <ul>\n          <li><a href="/">home</a></li>\n          <li><a href="/a">a</a></li>\n          <li><a href="/b">b</a></li>\n        </ul>\n        ', "\n        <script>\n          let refreshing;\n          async function handleUpdate() {\n            // check to see if there is a current active service worker\n            const oldSw = (await navigator.serviceWorker.getRegistration())?.active?.state;\n\n            navigator.serviceWorker.addEventListener('controllerchange', async () => {\n              if (refreshing) return;\n\n              // when the controllerchange event has fired, we get the new service worker\n              const newSw = (await navigator.serviceWorker.getRegistration())?.active?.state;\n\n              // if there was already an old activated service worker, and a new activating service worker, do the reload\n              if (oldSw === 'activated' && newSw === 'activating') {\n                refreshing = true;\n                window.location.reload();\n              }\n            });\n          }\n\n          handleUpdate();\n        <\/script>\n      </body>\n    </html>\n  "])), title ?? "", children);
+  }
+
+  // await.js
+  function Await({ children }) {
+    const template = children.find((element) => typeof element === "function");
+    return {
+      template
+    };
+  }
+  Await.kind = AWAIT_SYMBOL;
+  var when = (condition, template) => {
+    return condition ? template() : "";
+  };
 
   // main.js
   var router = new Router(
     {
       routes: [
         {
-          path: "/",
-          render: ({ params, query, request }) => html`<${HtmlPage}><h1>Foo</h1><//>`
-        },
-        {
-          path: "/about",
+          path: "/a",
           render: () => `<html><body><h1>About</h1></body></html>`
         },
         {
-          path: "/local",
-          plugin: () => `<html><body><h1>Render Local</h1></body></html>`
+          path: "/b",
+          plugin: [{ name: "b plugin", beforeResponse: async () => {
+            const textEncoder = new TextEncoder();
+            return new Response(textEncoder.encode(`<html><body><h1>Render Local</h1></body></html>`));
+          } }]
         },
         {
-          path: "/stream",
-          plugin: () => render(`<html><body><h1>Render Stream</h1></body></html>`)
+          path: "/",
+          render: ({ params, query, request }) => html`
+                  <${HtmlPage}>
+                    <h1>home</h1>
+                    <ul>
+                      <li>
+                        <${Await} promise=${() => new Promise((r) => setTimeout(() => r({ foo: "foo" }), 3e3))}>
+                          ${({ pending, success }, data) => html`
+                            ${when(pending, () => html`[PENDING] slow`)}
+                            ${when(success, () => html`[RESOLVED] slow ${data.foo}`)}
+                          `}
+                        <//>
+                      </li> 
+                      <li>
+                        <${Await} promise=${() => new Promise((r) => setTimeout(() => r({ bar: "bar" }), 1500))}>
+                          ${({ pending, success }, data) => html`
+                            ${when(pending, () => html`[PENDING] fast`)}
+                            ${when(success, () => html`[RESOLVED] fast ${data.bar}`)}
+                          `}
+                        <//>
+                      </li>
+                    </ul>
+                    <h2>footer</h2>
+                  <//>
+                `
         }
       ],
       fallback: `<html><body><h1>404</h1></body></html>`

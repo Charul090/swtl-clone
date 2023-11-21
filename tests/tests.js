@@ -4,6 +4,7 @@ import { html } from '../html.js';
 import { renderToString } from '../render.js';
 import { COMPONENT_SYMBOL } from "../symbol.js";
 import { HtmlPage } from '../HtmlPage/index.js';
+import { Await, when } from '../await.js';
 
 function Foo() {}
 function Bar({ children }) {
@@ -346,51 +347,50 @@ describe('renderToString', () => {
     assert.equal(result, '<main><h1>hello</h1></main>');
   });
 
-  // it('Component returning response', async () => {
-  //   function Foo() {
-  //     return new Response('hi');
-  //   }
-  //   const result = await renderToString(html`<main><${Foo}/></main>`);
-  //   assert.equal(result, '<main>hi</main>');
-  // });
-
-  // it('Async', async () => {
-  //   const result = await renderToString(html`<${Async} task=${() => new Promise(r => setTimeout(() => r({foo: 'bar'}), 100))}>
-  //     ${({state, data}) => html`
-  //       ${when(state === 'pending', () => html`[PENDING]`)}
-  //       ${when(state === 'success', () => html`[RESOLVED] ${data.foo}`)}
-  //     `}
-  //   <//>`);
-  //   console.log(result);
-  //   assert.equal(result, `<pending-task style="display: contents;" data-id="0">
-  //   [PENDING]
-    
-  // </pending-task>
-  // <template data-id="0">
-    
-  //   [RESOLVED] bar
-  // </template>
-  // <script>
-  //   {
-  //     let toReplace = document.querySelector('pending-task[data-id="0"]');
-  //     const template = document.querySelector('template[data-id="0"]').content.cloneNode(true);
-  //     toReplace.replaceWith(template);
-  //   }
-  // </script>`);
-  // });
-
-  it('kitchensink', async () => {
-    function Html({children}) {
-      return html`<html><body>${children}</body></html>`;
+  it('Component returning response', async () => {
+    function Foo() {
+      return new Response('hi');
     }
-
-    function Foo({bar, baz}) {
-      return html`<h2>foo ${bar} ${baz}</h2>`
-    }
-
-    const result = await renderToString(html`<${Html}><h1>welcome ${1}</h1><${Foo} bar=${1} baz="2"/><footer>copyright</footer><//>`)
-    assert.equal(result, '<html><body><h1>welcome 1</h1><h2>foo 1 2</h2><footer>copyright</footer></body></html>');
+    const result = await renderToString(html`<main><${Foo}/></main>`);
+    assert.equal(result, '<main>hi</main>');
   });
+
+  it('Async', async () => {
+    const result = await renderToString(html`<${Await} promise=${() => new Promise(r => setTimeout(() => r({foo: 'bar'}), 100))}>
+    ${({ pending, success }, data) => html`
+        ${when(pending, () => html`[PENDING]`)}
+        ${when(success, () => html`[RESOLVED] ${data.foo}`)}
+      `}
+    <//>`);
+    assert.equal(result, `<awaiting-promise style="display: contents;" data-id="0">
+    [PENDING]
+    
+  </awaiting-promise>
+  <template data-id="0">
+    
+    [RESOLVED] bar
+  </template>
+  <script>
+    {
+      let currElem = document.querySelector('awaiting-promise[data-id="0"]');
+      const newElem = document.querySelector('template[data-id="0"]').content.cloneNode(true);
+      currElem.replaceWith(template);
+    }
+  </script>`);
+  });
+
+  // it('kitchensink', async () => {
+  //   function Html({children}) {
+  //     return html`<html><body>${children}</body></html>`;
+  //   }
+
+  //   function Foo({bar, baz}) {
+  //     return html`<h2>foo ${bar} ${baz}</h2>`
+  //   }
+
+  //   const result = await renderToString(html`<${Html}><h1>welcome ${1}</h1><${Foo} bar=${1} baz="2"/><footer>copyright</footer><//>`)
+  //   assert.equal(result, '<html><body><h1>welcome 1</h1><h2>foo 1 2</h2><footer>copyright</footer></body></html>');
+  // });
 
   // it('test code of components nested', async () => {
   //   const htmlPage = html`<${HtmlPage} title="Home">

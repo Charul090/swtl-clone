@@ -1,11 +1,11 @@
 import { render } from './render';
 
-function getHtmlResponseForTemplate(template) {
+async function getHtmlResponseForTemplate(template) {
     const responseIterator = render(template);
     const textEncoder = new TextEncoder();
     const readAbleStream = new ReadableStream({
-        pull: (controller) => {
-            const { value, done } = responseIterator.next();
+        pull: async (controller) => {
+            const { value, done } = await responseIterator.next();
             if (done) {
                 controller.close();
             } else {
@@ -50,7 +50,7 @@ export class Router {
         });
 
         if (!matchedRoute) {
-            return getHtmlResponseForTemplate(this.fallback || '');
+            return await getHtmlResponseForTemplate(this.fallback || '');
         }
 
         const search = {};
@@ -66,7 +66,7 @@ export class Router {
                 }
             };
             
-            return getHtmlResponseForTemplate(pluginRes);
+            return await getHtmlResponseForTemplate(pluginRes);
         }
         
         
@@ -75,6 +75,6 @@ export class Router {
         }
 
         const htmlTemplate = matchedRoute.render(params, search, req);
-        return getHtmlResponseForTemplate(htmlTemplate);
+        return await getHtmlResponseForTemplate(htmlTemplate);
     }
 }
